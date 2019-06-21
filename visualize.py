@@ -1,7 +1,8 @@
-import argparse
+import click
 import numpy as np
 
-from examples.experiment_utils import load_experiment
+from configs.default import default_visualize_config
+from experiment_utils import load_experiment
 from rlkit.core import logger
 from rlkit.envs.manipulation_env import ManipulationEnv
 from rlkit.envs.wrappers import NormalizedBoxEnv
@@ -10,27 +11,15 @@ from rlkit.samplers.util import rollout
 from rlkit.torch.pytorch_util import set_gpu_mode
 
 
-def visualize_policy(args):
-    variant_overwrite = dict(
-        params_pkl=args.params_pkl,
-        num_historical_policies=args.num_historical_policies,
-        env_kwargs=dict(
-            reward_type='indicator',
-            sample_goal=False,
-            shape_rewards=False,
-            distance_threshold=0.1,
-            terminate_upon_success=False,
-            terminate_upon_failure=False,
-        )
-    )
-    if args.logdir == '':
+def visualize(log_dir, variant_overwrite, num_episodes, max_path_length, deterministic=False, cpu=False, render=True):
+    if log_dir == '':
         variant = variant_overwrite
         env = NormalizedBoxEnv(ManipulationEnv(**variant_overwrite['env_kwargs']))
         eval_policy = RandomPolicy(env.action_space)
     else:
-        env, _, data, variant = load_experiment(args.logdir, variant_overwrite)
-        eval_policy = data['eval_policy'] if args.use_deterministic_policy else data['policy']
-        if not args.cpu:
+        env, _, data, variant = load_experiment(log_dir, variant_overwrite)
+        eval_policy = data['eval_policy'] if deterministic else data['policy']
+        if not cpu:
             set_gpu_mode(True)
             eval_policy.cuda()
         print("Loaded policy:", eval_policy)
@@ -63,13 +52,13 @@ def visualize_policy(args):
             eval_policy = PartialPolicy(eval_policy)
 
     paths = []
-    for _ in range(args.num_episodes):
+    for _ in range(num_episodes):
         eval_policy.reset()
         path = rollout(
             env,
             eval_policy,
-            max_path_length=args.max_path_length,
-            animated=(not args.norender),
+            max_path_length=max_path_length,
+            animated=render,
         )
         paths.append(path)
         if hasattr(env, "log_diagnostics"):
@@ -83,21 +72,21 @@ def visualize_policy(args):
         env.draw(paths, save_dir="")
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('logdir', type=str,
-                        help='path to the log dir')
-    parser.add_argument('--params-pkl', type=str, default='params.pkl',
-                        help='Pickle file from which to load the policy')
-    parser.add_argument('--norender', action='store_true')
-    parser.add_argument('--cpu', action='store_true')
-    parser.add_argument('--max-path-length', type=int, default=50,
-                        help='Max length of rollout')
-    parser.add_argument('--num-episodes', type=int, default=200,
-                        help='Number of episodes to simulate.')
-    parser.add_argument('--use-deterministic-policy', action='store_true')
-    parser.add_argument('--num-historical-policies', type=int, default=0,
-                        help='Number of historical policies.')
-    args = parser.parse_args()
+@click.command()
+@click.argument('log-dir', default=None)
+@click.option('--num-episodes', default=50, help="Number of episodes")
+@click.option('--max-path-length', default=50, help="Maximum path length in the environment")
+@click.option('--deterministic', default=False, is_flag=True,
+    help="Whether to run deterministic or stochastic policy")
+@click.option('--cpu', default=False, is_flag=True, help="Run on CPU")
+@click.option('--norender', default=False, is_flag=True)
 
-    visualize_policy(args)
+
+def main(log_dir, num_episodes, max_path_length, deterministic, cpu, norender):
+    variant = default_visualize_config
+    visualize(log_dir, variant, num_episodes, max_path_length,
+        deterministic=deterministic, cpu=cpu, render=(not norender))
+
+
+if __name__ == "__main__":
+    main()

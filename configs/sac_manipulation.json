@@ -1,0 +1,6 @@
+{
+  "intrinsic_reward": "none",
+  "algo_kwargs": {
+    "reward_scale": 1
+  }
+}

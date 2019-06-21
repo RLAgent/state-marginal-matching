@@ -29,3 +29,4 @@ dependencies:
       - box2d        # Linux only; comment this line out for Mac
       - box2d-kengz  # Linux only; comment this line out for Mac
       - tensorboardX==1.6
+      - click

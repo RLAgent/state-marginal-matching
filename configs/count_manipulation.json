@@ -1,0 +1,8 @@
+{
+  "intrinsic_reward": "count",
+  "count_kwargs": {
+    "count_coeff": 10.0,
+    "histogram_axes": [3, 4, 5],
+    "histogram_bin_width": 0.05
+  }
+}

@@ -1,5 +1,9 @@
-from examples.args import parse_args
-from examples.experiment_utils import get_exp_id, create_env
+import click
+import json
+import os
+
+from configs.default import default_train_config
+from experiment_utils import get_exp_id, create_env, overwrite_dict
 import rlkit.torch.pytorch_util as ptu
 from rlkit.launchers.launcher_util import setup_logger, create_exp_name
 from rlkit.torch.sac.policies import TanhGaussianPolicy
@@ -48,6 +52,8 @@ def experiment(variant):
         **variant['algo_kwargs']
     )
 
+    # Hook classes (SMMHook, ICMHook, CountHook, PseudocountHook) override
+    # appropriate methods of `algorithm`.
     if intrinsic_reward == 'smm':
         discriminator = FlattenMlp(
             input_size=obs_dim - num_skills,
@@ -59,9 +65,7 @@ def experiment(variant):
             num_skills=num_skills,
             code_dim=128,
             **variant['vae_density_kwargs'])
-
-        # Overwrite appropriate functions of algorithm.
-        smm_algorithm_hook = SMMHook(
+        SMMHook(
             base_algorithm=algorithm,
             discriminator=discriminator,
             density_model=density_model,
@@ -82,8 +86,6 @@ def experiment(variant):
             hidden_sizes=[],
             output_size=action_dim,
         )
-
-        # Overwrite appropriate functions of algorithm.
         ICMHook(
             base_algorithm=algorithm,
             embedding_model=embedding_model,
@@ -91,7 +93,7 @@ def experiment(variant):
             inverse_model=inverse_model,
             **variant['icm_kwargs'])
     elif intrinsic_reward == 'count':
-        count_algorithm_hook = CountHook(
+        CountHook(
             base_algorithm=algorithm,
             **variant['count_kwargs'])
     elif intrinsic_reward == 'pseudocount':
@@ -101,8 +103,6 @@ def experiment(variant):
             code_dim=128,
             **variant['vae_density_kwargs'],
         )
-
-        # Overwrite appropriate functions of algorithm.
         PseudocountHook(
             base_algorithm=algorithm,
             density_model=density_model,
@@ -112,108 +112,38 @@ def experiment(variant):
     algorithm.train()
 
 
-if __name__ == "__main__":
-    args = parse_args()
+@click.command()
+@click.argument('config', default=None)
+@click.option('--cpu', default=False, is_flag=True, help="Run on CPU")
+@click.option('--log-dir', default='out', help="Output directory")
+@click.option('--snapshot-gap', default=50,
+    help='How often to save model checkpoints (by # epochs).')
 
-    variant = dict(
-        log_prefix=args.log_dir,
-        algo='sac',
-        intrinsic_reward=args.intrinsic_reward,
-        env_id=args.env_id,
-        net_size=args.net_size,
-        algo_kwargs=dict(
-            num_epochs=args.num_epochs,
-            num_steps_per_epoch=args.num_steps_per_epoch,
-            num_steps_per_eval=args.num_steps_per_eval,
-            max_path_length=args.max_path_length,
-            batch_size=args.batch_size,
-            discount=args.discount,
 
-            # SAC parameters
-            eval_deterministic=False,
-            reward_scale=args.reward_scale,
-            soft_target_tau=args.soft_target_tau,
-            policy_lr=args.policy_lr,
-            qf_lr=args.qf_lr,
-            vf_lr=args.vf_lr,
-            target_entropy=args.target_entropy,
-        ),
-    )
-    if args.env_id == 'ManipulationEnv':
-        variant.update(
-            env_kwargs=dict(
-                goal_prior=args.goal_prior,
-                shaped_rewards=args.shaped_rewards,
-                init_object_pos_prior=args.init_object_pos_prior,
-            ),
-        )
-    elif args.env_id == 'StarEnv':
-        variant.update(
-            env_kwargs=dict(
-                num_halls=args.num_halls,
-                halls_with_goals=list(range(args.num_halls)),
-                hall_length=args.hall_length,
-            ))
-    else:
-        raise NotImplementedError('Unrecognized environment: {}'.format(args.env_id))
-
-    variant.update(
-        vae_density_kwargs=dict(
-            beta=args.vae_beta,
-            lr=args.vae_lr,
-        )
-    )
-
-    if args.intrinsic_reward == 'smm':
-        variant.update(
-            smm_kwargs=dict(
-                num_skills=args.num_skills,
-                rl_coeff=args.rl_coeff,
-                state_entropy_coeff=args.state_entropy_coeff,
-                latent_entropy_coeff=args.latent_entropy_coeff,
-                latent_conditional_entropy_coeff=args.latent_conditional_entropy_coeff,
-                discriminator_lr=args.discriminator_lr,
-                ),
-        )
-    elif args.intrinsic_reward == 'icm':
-        variant.update(
-            icm_kwargs=dict(
-                rl_coeff=args.rl_coeff,
-                lr=args.icm_lr,
-            ),
-        )
-    elif args.intrinsic_reward == 'count':
-        variant.update(
-            count_kwargs=dict(
-                count_coeff=args.count_coeff,
-                histogram_axes=[3, 4, 5] if (args.block_density_only and args.env_id == 'ManipulationEnv') else None,
-                histogram_bin_width=args.count_histogram_bin_width,
-            ),
-        )
-    elif args.intrinsic_reward == 'pseudocount':
-        variant.update(
-            pseudocount_kwargs=dict(
-                count_coeff=args.count_coeff,
-            ),
-        )
-    elif args.intrinsic_reward == 'none':
-        pass
-    else:
-        raise NotImplementedError('Unrecognized intrinsic_reward: {}'.format(args.algo))
+def main(config, cpu, log_dir, snapshot_gap):
+    variant = default_train_config
+    if config:
+        with open(os.path.join(config)) as f:
+            exp_params = json.load(f)
+        overwrite_dict(variant, exp_params)
 
     # Set log directory.
     exp_id = get_exp_id(variant)
     variant.update(exp_id=exp_id)
-    log_dir = create_exp_name(variant['exp_id'])
+    log_dir = create_exp_name(os.path.join(log_dir, exp_id))
     print('Logging to:', log_dir)
     setup_logger(log_dir=log_dir,
                  variant=variant,
                  snapshot_mode='gap_and_last',
-                 snapshot_gap=args.snapshot_gap,
+                 snapshot_gap=snapshot_gap,
     )
 
     # Set GPU.
-    if not args.cpu:
+    if not cpu:
         ptu.set_gpu_mode(True)
 
     experiment(variant)
+
+
+if __name__ == "__main__":
+    main()

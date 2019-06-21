@@ -1,0 +1,10 @@
+{
+  "intrinsic_reward": "pseudocount",
+  "pseudocount_kwargs": {
+    "count_coeff": 1.0
+  },
+  "vae_density_kwargs": {
+    "beta": 0.5,
+    "lr": 0.01
+  }
+}

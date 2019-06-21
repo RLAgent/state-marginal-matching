@@ -32,56 +32,39 @@ To deactivate the conda environment, run `conda deactivate`. To remove it, run `
 
 ## Running the code
 
-### 1. Training a policy on FetchEnv
+### 1. Training a policy on ManipulationEnv
 ```
-python -m examples.train --intrinsic-reward smm --num-skills 4           # State Marginal Matching (SMM) with 4 latent skills
-python -m examples.train --intrinsic-reward none                         # Soft Actor-Critic (SAC)
-python -m examples.train --intrinsic-reward icm                          # Intrinsic Curiosity Module (ICM)
-python -m examples.train --intrinsic-reward count --count-coeff 10       # Count
-python -m examples.train --intrinsic-reward pseudocount --count-coeff 1  # Pseudocount
+python -m train configs/smm_manipulation.json          # State Marginal Matching (SMM) with 4 latent skills
+python -m train configs/sac_manipulation.json          # Soft Actor-Critic (SAC)
+python -m train configs/icm_manipulation.json          # Intrinsic Curiosity Module (ICM)
+python -m train configs/count_manipulation.json        # Count-based Exploration
+python -m train configs/pseudocount_manipulation.json  # Pseudocount
 ```
+
 The log directory can be set with `--log-dir /path/to/log/dir`. By default, the log directory is set to `out/`.
 
 ### 2. Visualizing a trained policy
 ```
-python -m examples.visualize /path/to/log/dir                               # Without historical averaging
-python -m examples.visualize /path/to/log/dir --num-historical-policies 10  # With historical averaging
+python -m visualize /path/to/log/dir                               # Without historical averaging
+python -m visualize /path/to/log/dir --num-historical-policies 10  # With historical averaging
 ```
 
 ### 3. Evaluating a trained policy
 ```
-python -m examples.eval /path/to/log/dir                               # Without historical averaging
-python -m examples.eval /path/to/log/dir --num-historical-policies 10  # With historical averaging
+python -m test /path/to/log/dir                                # Without historical averaging
+python -m test /path/to/log/dir --config configs/test_ha.json  # With historical averaging
 ```
 
 To view more flag options, run the scripts with the `--help` flag. For example:
 ```
-python -m examples.train --help
-usage: train.py [-h] [--log-dir LOG_DIR] [--cpu] [--snapshot-gap SNAPSHOT_GAP]
-                [--env-id {FetchEnv,StarEnv}]
-                [--goal-prior {uniform,half}]
-                [--shaped-rewards SHAPED_REWARDS]
-                [--distance-threshold DISTANCE_THRESHOLD]
-                [--init-object-pos-prior INIT_OBJECT_POS_PRIOR]
-                [--num-halls NUM_HALLS] [--hall-length HALL_LENGTH]
-                [--intrinsic-reward {none,smm,icm,count,pseudocount}]
-                [--num-epochs NUM_EPOCHS]
-                [--num-steps-per-epoch NUM_STEPS_PER_EPOCH]
-                [--num-steps-per-eval NUM_STEPS_PER_EVAL]
-                [--max-path-length MAX_PATH_LENGTH] [--batch-size BATCH_SIZE]
-                [--discount DISCOUNT] [--net-size NET_SIZE]
-                [--reward-scale REWARD_SCALE]
-                [--soft-target-tau SOFT_TARGET_TAU] [--policy-lr POLICY_LR]
-                [--qf-lr QF_LR] [--vf-lr VF_LR]
-                [--target-entropy TARGET_ENTROPY] [--num-skills NUM_SKILLS]
-                [--vae-lr VAE_LR] [--vae-beta VAE_BETA] [--rl-coeff RL_COEFF]
-                [--state-entropy-coeff STATE_ENTROPY_COEFF]
-                [--latent-entropy-coeff LATENT_ENTROPY_COEFF]
-                [--latent-conditional-entropy-coeff LATENT_CONDITIONAL_ENTROPY_COEFF]
-                [--discriminator-lr DISCRIMINATOR_LR] [--icm-lr ICM_LR]
-                [--count-coeff COUNT_COEFF]
-                [--count-histogram-bin-width COUNT_HISTOGRAM_BIN_WIDTH]
-                [--block-density-only]
+$ python -m train --help
+Usage: train.py [OPTIONS] CONFIG
+
+Options:
+  --cpu
+  --log-dir TEXT
+  --snapshot-gap INTEGER  How often to save model checkpoints (by # epochs).
+  --help                  Show this message and exit.
 ```
 
 

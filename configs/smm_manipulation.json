@@ -1,0 +1,15 @@
+{
+  "intrinsic_reward": "smm",
+  "smm_kwargs": {
+    "num_skills": 4,
+    "rl_coeff": 1.0,
+    "discriminator_lr": 0.001,
+    "state_entropy_coeff": 1.0,
+    "latent_conditional_entropy_coeff": 1.0,
+    "latent_entropy_coeff": 1.0
+  },
+  "vae_density_kwargs": {
+    "lr": 0.01,
+    "beta": 0.5
+  }
+}

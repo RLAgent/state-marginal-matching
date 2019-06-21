@@ -24,6 +24,18 @@ def create_env(env_id, env_kwargs, num_skills=0):
     return env, training_env
 
 
+def overwrite_dict(old_dict, new_dict):
+    """Recursively update old_dict (in-place) with values from new_dict."""
+    for key, val in new_dict.items():
+        if isinstance(val, dict):
+            if key not in old_dict:
+                old_dict[key] = val
+            else:
+                overwrite_dict(old_dict[key], val)
+        else:
+            old_dict[key] = val
+
+
 def load_experiment(log_dir, variant_overwrite=dict()):
     """
     Loads environment and trained policy from file.
@@ -36,16 +48,7 @@ def load_experiment(log_dir, variant_overwrite=dict()):
     print(json.dumps(variant, indent=4, sort_keys=True))
 
     # Overwrite variants.
-    def walk_dict(d, variants_subtree):
-        for key, val in d.items():
-            if isinstance(val, dict):
-                if key not in variants_subtree:
-                    print("While overwriting variants, skipping:", key, val)
-                else:
-                    walk_dict(val, variants_subtree[key])
-            else:
-                variants_subtree[key] = val
-    walk_dict(variant_overwrite, variant)
+    overwrite_dict(variant, variant_overwrite)
     print('Overwrote variants:')
     print(json.dumps(variant, indent=4, sort_keys=True))
 
@@ -97,16 +100,14 @@ def get_exp_id(variant):
         raise NotImplementedError('Unrecognized intrinsic_reward: {}'.format(variant['intrinsic_reward']))
 
     if variant['env_id'] == 'StarEnv':
-        exp_id = '{}/{}-{}-{}/{}'.format(
-            variant['log_prefix'],
+        exp_id = '{}-{}-{}/{}'.format(
             variant['env_id'],
             variant['env_kwargs']['num_halls'],
             variant['env_kwargs']['hall_length'],
             variant['algo'] + algo_suffix,
         )
     elif variant['env_id'] == 'ManipulationEnv':
-        exp_id = '{}/{}-{}-{}/{}'.format(
-            variant['log_prefix'],
+        exp_id = '{}-{}-{}/{}'.format(
             variant['env_id'],
             variant['env_kwargs']['goal_prior'],
             ','.join(variant['env_kwargs']['shaped_rewards']),

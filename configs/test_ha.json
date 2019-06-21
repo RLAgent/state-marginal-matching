@@ -1,0 +1,7 @@
+{
+  "historical_policies_kwargs": {
+    "num_historical_policies": 10,
+    "sample_strategy": "exponential",
+    "on_policy_prob": 0.1
+  }
+}
